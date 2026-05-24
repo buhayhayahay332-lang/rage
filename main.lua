@@ -19,7 +19,7 @@ end))
 
 local function import(path)
     local baseUrl = getgenv().OP1NIBBLER_BASE_URL or
-                        "https://raw.githubusercontent.com/buhayhayahay332-lang/main/rage"
+                        "https://raw.githubusercontent.com/buhayhayahay332-lang/rage/main/"
 
     if game.HttpGet and baseUrl and #baseUrl > 0 then
         local url = baseUrl .. path
