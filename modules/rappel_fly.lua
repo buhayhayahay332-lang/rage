@@ -3,26 +3,23 @@ return function(ctx)
     local cloneref = Runtime.cloneref or cloneref or function(obj)
         return obj
     end
-    local clonefunc = Runtime.clonefunction or clonefunc or function(fn)
+    local clonefunction = Runtime.clonefunction or clonefunction or function(fn)
         return fn
     end
     local newcclosure = Runtime.newcclosure or newcclosure or function(fn)
         return fn
     end
-    local hookfunction = Runtime.hookfunction or hookfunction or function(f, r)
+    local hookfunction = Runtime.hookfunction or hookfunction or function(f)
         return f
     end
-    local replaceclosure = Runtime.replaceclosure or replaceclosure or function(f, r)
-        return f
-    end
-    local hookmetamethod = Runtime.hookmetamethod or hookmetamethod or function()
-    end
-    local getrawmetatable = Runtime.getrawmetatable or getrawmetatable or function()
-        return {}
-    end
-    local setreadonly = Runtime.setreadonly or setreadonly or function()
-    end
-    local Instance_new = clonefunc(Instance.new)
+    local getrawmetatable = Runtime.getrawmetatable or getrawmetatable
+    local setreadonly = Runtime.setreadonly or setreadonly
+    local InstanceNew = Runtime.InstanceNew or Instance.new
+
+    local rawset = clonefunction(rawset)
+    local rawget = clonefunction(rawget)
+    local pcall = clonefunction(pcall)
+    local setmetatable = clonefunction(setmetatable)
 
     local Services = ctx and ctx.Services or {}
     local ReplicatedStorage = Services.ReplicatedStorage or cloneref(game:GetService("ReplicatedStorage"))
@@ -30,149 +27,60 @@ return function(ctx)
     local UserInputService = Services.UserInputService or cloneref(game:GetService("UserInputService"))
     local Players = Services.Players or cloneref(game:GetService("Players"))
     local Workspace = Services.Workspace or cloneref(game:GetService("Workspace"))
-    local LocalPlayer = Players.LocalPlayer
-    local GrappleModule = require(ReplicatedStorage.Modules.Items.Item.Utility.GrapplingHook)
-    local camera = Workspace.CurrentCamera
 
-    local CONFIG = {
+    local GrappleModule = require(ReplicatedStorage.Modules.Items.Item.Utility.GrapplingHook)
+
+    local config = {
         speed = 10,
         pull_speed = 0.5,
         fly_key = Enum.KeyCode.G
     }
 
     local M = {
-        enabled = false, -- start off; UI toggle enables it
-        speed = CONFIG.speed,
-        pullSpeed = CONFIG.pull_speed,
-        flyKey = CONFIG.fly_key,
+        enabled = false,
+        speed = config.speed,
+        pullSpeed = config.pull_speed,
         _initialized = false
     }
 
     local flying = false
-    local fly_connection
-    local grapple_self_ref = nil
-    local grapple_owner_ref = nil
-    local old_walkspeed = nil
-    local old_jumppower = nil
-    local real_self_states = nil
-    local real_owner_states = nil
-    local tracked_humanoid = nil
-    local dummy_event = Instance_new("BindableEvent")
+    local flyConnection = nil
+    local grappleSelfRef = nil
+    local grappleOwnerRef = nil
+    local oldWalkSpeed = nil
+    local oldJumpPower = nil
+    local realSelfStates = nil
+    local realOwnerStates = nil
+    local trackedHumanoid = nil
+    local dummyEvent = InstanceNew("BindableEvent")
+    local inputConnection = nil
+    local localViewmodelAddedConnection = nil
+    local localViewmodelConnections = {}
 
-    -- property spoofing
-    local spoofed = {}
-
-    local function spoof_property(instance, key, fake_value, real_value)
-        if not spoofed[instance] then
-            spoofed[instance] = {}
-        end
-        spoofed[instance][key] = fake_value -- what we show when read
-        instance[key] = real_value -- what we actually set
+    local function getCamera()
+        return Workspace.CurrentCamera
     end
 
-    local function clear_spoof(instance, key)
-        if spoofed[instance] then
-            spoofed[instance][key] = nil
-            if next(spoofed[instance]) == nil then
-                spoofed[instance] = nil
-            end
+    local function getWasdDirection()
+        local camera = getCamera()
+        if not camera then
+            return Vector3.new()
         end
-    end
 
-    -- __index spoofing: return fake original values when game reads our modified properties
-    local mt = getrawmetatable(game)
-    local old_index
-    if mt and mt.__index then
-        old_index = clonefunc(mt.__index)
-        setreadonly(mt, false)
-        mt.__index = newcclosure(function(self, key)
-            if spoofed[self] and spoofed[self][key] ~= nil then
-                return spoofed[self][key]
-            end
-            if old_index then
-                if type(old_index) == "function" then
-                    return old_index(self, key)
-                elseif type(old_index) == "table" then
-                    return old_index[key]
-                end
-            end
-            return self[key]
-        end)
-        setreadonly(mt, true)
-    else
-        -- fallback if we can't hook; just read the raw value
-        old_index = function(obj, key)
-            return obj[key]
-        end
-    end
-
-    -- __newindex spoofing: force our values back if game tries to override them
-    local old_newindex
-    if hookmetamethod then
-        local hook_result
-        pcall(function()
-            hook_result = hookmetamethod(game, "__newindex", newcclosure(function(self, key, value)
-                if flying and spoofed[self] and spoofed[self][key] ~= nil then
-                    return -- block game from writing back to our modified properties
-                end
-                if old_newindex then
-                    if type(old_newindex) == "function" then
-                        return old_newindex(self, key, value)
-                    elseif type(old_newindex) == "table" then
-                        old_newindex[key] = value
-                        return
-                    end
-                end
-                rawset(self, key, value)
-            end))
-        end)
-        old_newindex = hook_result
-        if not old_newindex then
-            -- hook failed; fall back to manual __newindex handling
-            old_newindex = function(self, key, value)
-                if flying and spoofed[self] and spoofed[self][key] ~= nil then
-                    return
-                end
-                rawset(self, key, value)
-            end
-        end
-    else
-        old_newindex = function(self, key, value)
-            if flying and spoofed[self] and spoofed[self][key] ~= nil then
-                return
-            end
-            rawset(self, key, value)
-        end
-    end
-
-    -- GetPropertyChangedSignal: block signals for our modified properties
-    local old_gpcs = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
-        if flying and spoofed[self] and spoofed[self][property] ~= nil then
-            return dummy_event.Event
-        end
-        if flying and self == tracked_humanoid then
-            if property == "WalkSpeed" or property == "JumpPower" then
-                return dummy_event.Event
-            end
-        end
-        return old_gpcs(self, property)
-    end))
-
-    local function get_wasd_direction()
-        local direction = Vector3.new(0, 0, 0)
-        local cam_cf = camera.CFrame
+        local direction = Vector3.new()
+        local cameraFrame = camera.CFrame
 
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            direction = direction + cam_cf.LookVector
+            direction = direction + cameraFrame.LookVector
         end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            direction = direction - cam_cf.LookVector
+            direction = direction - cameraFrame.LookVector
         end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            direction = direction - cam_cf.RightVector
+            direction = direction - cameraFrame.RightVector
         end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            direction = direction + cam_cf.RightVector
+            direction = direction + cameraFrame.RightVector
         end
 
         if direction.Magnitude > 0 then
@@ -182,13 +90,13 @@ return function(ctx)
         return direction
     end
 
-    local function make_state_proxy(real, set_intercept)
+    local function makeStateProxy(real, setIntercept)
         return setmetatable({}, {
             __index = newcclosure(function(_, method)
                 if method == "set" then
-                    return function(_, value)
-                        return set_intercept(real, value)
-                    end
+                    return newcclosure(function(_, value)
+                        return setIntercept(real, value)
+                    end)
                 end
                 return real[method]
             end),
@@ -199,15 +107,19 @@ return function(ctx)
         })
     end
 
-    local states_proxy_mt = {
+    local statesProxyMt = {
         __index = newcclosure(function(t, key)
             local real = rawget(t, "__real_states")[key]
-            if not real then return nil end
+            if not real then
+                return nil
+            end
 
             if key == "rappeling" then
-                return make_state_proxy(real, function(r, value)
-                    if flying and value == false then return end
-                    return r:set(value)
+                return makeStateProxy(real, function(state, value)
+                    if flying and value == false then
+                        return
+                    end
+                    return state:set(value)
                 end)
             end
 
@@ -219,22 +131,28 @@ return function(ctx)
         __metatable = "locked"
     }
 
-    local owner_states_proxy_mt = {
+    local ownerStatesProxyMt = {
         __index = newcclosure(function(t, key)
             local real = rawget(t, "__real_states")[key]
-            if not real then return nil end
+            if not real then
+                return nil
+            end
 
             if key == "climbing" then
-                return make_state_proxy(real, function(r, value)
-                    if flying and value == 0 then return end
-                    return r:set(value)
+                return makeStateProxy(real, function(state, value)
+                    if flying and value == 0 then
+                        return
+                    end
+                    return state:set(value)
                 end)
             end
 
             if key == "vault" then
-                return make_state_proxy(real, function(r, value)
-                    if flying and value > 0 then return end
-                    return r:set(value)
+                return makeStateProxy(real, function(state, value)
+                    if flying and value > 0 then
+                        return
+                    end
+                    return state:set(value)
                 end)
             end
 
@@ -246,182 +164,136 @@ return function(ctx)
         __metatable = "locked"
     }
 
-    -- direct assignment for hook_inputs
-    local old_hook_inputs = GrappleModule.hook_inputs
-    GrappleModule.hook_inputs = newcclosure(function(self, ...)
-        grapple_self_ref = self
-        grapple_owner_ref = self.owner
-        if old_hook_inputs then
-            return old_hook_inputs(self, ...)
-        end
-    end)
-
-    -- direct assignment for can_rappel
-    local old_can_rappel = GrappleModule.can_rappel
-    GrappleModule.can_rappel = newcclosure(function(self, owner)
+    local function stopFlying()
         if not flying then
-            if old_can_rappel then
-                return old_can_rappel(self, owner)
-            end
-            return nil
+            return
         end
-
-        local target = camera.CFrame.Position + camera.CFrame.LookVector * 100
-        return CFrame.new(target), CFrame.new(target + Vector3.new(0, 2, 0))
-    end)
-
-    -- replaceclosure on start_rappel_mode
-    local old_start_rappel = GrappleModule.start_rappel_mode
-    if old_start_rappel then
-        replaceclosure(GrappleModule.start_rappel_mode, newcclosure(function(self, owner, ...)
-            return old_start_rappel(self, owner, ...)
-        end))
-    end
-
-    local function stop_flying()
-        if not flying then return end
         flying = false
 
-        if fly_connection then
-            fly_connection:Disconnect()
-            fly_connection = nil
+        if flyConnection then
+            flyConnection:Disconnect()
+            flyConnection = nil
         end
 
-        local self = grapple_self_ref
-        local owner = grapple_owner_ref
+        local selfRef = grappleSelfRef
+        local ownerRef = grappleOwnerRef
 
-        if self then
+        if selfRef then
             pcall(function()
-                if real_self_states then
-                    self.states = real_self_states
-                    real_self_states = nil
+                if realSelfStates then
+                    selfRef.states = realSelfStates
+                    realSelfStates = nil
                 end
             end)
 
             pcall(function()
-                if self.move_position then
-                    -- clear spoofs before restoring so values go through
-                    clear_spoof(self.move_position, "MaxVelocity")
-                    clear_spoof(self.move_position, "Responsiveness")
-                    self.move_position.MaxVelocity = math.huge
-                    self.move_position.Responsiveness = 200
+                if selfRef.move_position then
+                    selfRef.move_position.MaxVelocity = math.huge
+                    selfRef.move_position.Responsiveness = 0
                 end
             end)
 
             pcall(function()
-                if self.states then
-                    self.states.rappeling:set(false)
-                    self.states.hook:set(CFrame.new())
+                if selfRef.states then
+                    selfRef.states.rappeling:set(false)
+                    selfRef.states.hook:set(CFrame.new())
                 end
             end)
         end
 
-        if owner then
+        if ownerRef then
             pcall(function()
-                if real_owner_states then
-                    owner.states = real_owner_states
-                    real_owner_states = nil
+                if realOwnerStates then
+                    ownerRef.states = realOwnerStates
+                    realOwnerStates = nil
                 end
             end)
 
             pcall(function()
-                local humanoid = owner.instance:FindFirstChildOfClass("Humanoid")
-                local root = owner.instance:FindFirstChild("HumanoidRootPart")
+                local humanoid = ownerRef.instance and ownerRef.instance:FindFirstChildOfClass("Humanoid")
+                local root = ownerRef.instance and ownerRef.instance:FindFirstChild("HumanoidRootPart")
                 if humanoid and root and root.Parent then
-                    -- clear spoofs before restoring
-                    clear_spoof(humanoid, "WalkSpeed")
-                    clear_spoof(humanoid, "JumpPower")
-                    humanoid.WalkSpeed = old_walkspeed or 16
-                    humanoid.JumpPower = old_jumppower or 50
+                    humanoid.WalkSpeed = oldWalkSpeed or 16
+                    humanoid.JumpPower = oldJumpPower or 50
                 end
             end)
         end
 
-        tracked_humanoid = nil
-        old_walkspeed = nil
-        old_jumppower = nil
+        trackedHumanoid = nil
+        oldWalkSpeed = nil
+        oldJumpPower = nil
 
         print("[Fly] Stopped")
     end
 
-    local function start_flying()
-        if not M.enabled then
+    local function startFlying()
+        if not M.enabled or not grappleSelfRef or not grappleOwnerRef then
+            return
+        end
+
+        local selfRef = grappleSelfRef
+        local ownerRef = grappleOwnerRef
+        if not selfRef or not ownerRef or not ownerRef.instance then
             return
         end
 
         flying = true
 
-        local self = grapple_self_ref
-        local owner = grapple_owner_ref
-
         pcall(function()
-            real_self_states = self.states
-            self.states = setmetatable({ __real_states = real_self_states }, states_proxy_mt)
+            realSelfStates = selfRef.states
+            selfRef.states = setmetatable({__real_states = realSelfStates}, statesProxyMt)
         end)
 
         pcall(function()
-            real_owner_states = owner.states
-            owner.states = setmetatable({ __real_states = real_owner_states }, owner_states_proxy_mt)
+            realOwnerStates = ownerRef.states
+            ownerRef.states = setmetatable({__real_states = realOwnerStates}, ownerStatesProxyMt)
         end)
 
         pcall(function()
-            local humanoid = owner.instance:FindFirstChildOfClass("Humanoid")
+            local humanoid = ownerRef.instance:FindFirstChildOfClass("Humanoid")
             if humanoid then
-                tracked_humanoid = humanoid
-                old_walkspeed = humanoid.WalkSpeed
-                old_jumppower = humanoid.JumpPower
-                -- spoof: game reads original values, we set 0
-                spoof_property(humanoid, "WalkSpeed", old_walkspeed, 0)
-                spoof_property(humanoid, "JumpPower", old_jumppower, 0)
+                trackedHumanoid = humanoid
+                oldWalkSpeed = humanoid.WalkSpeed
+                oldJumpPower = humanoid.JumpPower
+                humanoid.WalkSpeed = 0
+                humanoid.JumpPower = 0
             end
         end)
 
         pcall(function()
-            if self.move_position then
-                local fakeMax = (spoofed[self.move_position] and spoofed[self.move_position].MaxVelocity)
-                    or self.move_position.MaxVelocity
-                spoof_property(self.move_position, "MaxVelocity", fakeMax, CONFIG.pull_speed)
-                spoof_property(self.move_position, "Responsiveness",
-                    (spoofed[self.move_position] and spoofed[self.move_position].Responsiveness)
-                        or self.move_position.Responsiveness,
-                    10)
+            if selfRef.move_position then
+                selfRef.move_position.MaxVelocity = config.pull_speed
+                selfRef.move_position.Responsiveness = 10
             end
         end)
 
-        local root = owner.instance:FindFirstChild("HumanoidRootPart")
-        local current_target = root and root.Position or camera.CFrame.Position
+        local root = ownerRef.instance:FindFirstChild("HumanoidRootPart")
+        local camera = getCamera()
+        local currentTarget = root and root.Position or (camera and camera.CFrame.Position) or Vector3.new()
 
         pcall(function()
-            if self and self.start_rappel_mode then
-                local stay_cf = CFrame.new(current_target)
-                self:start_rappel_mode(owner, stay_cf, stay_cf)
-            else
-                warn("[Fly] start_rappel_mode missing on GrappleModule")
-                stop_flying()
-                return
-            end
+            local stayCf = CFrame.new(currentTarget)
+            selfRef:start_rappel_mode(ownerRef, stayCf, stayCf)
         end)
 
-        fly_connection = RunService.Heartbeat:Connect(newcclosure(function(dt)
-            if not flying then
-                fly_connection:Disconnect()
+        flyConnection = RunService.Heartbeat:Connect(newcclosure(function(dt)
+            if not flying or not M.enabled then
+                stopFlying()
                 return
             end
 
-            local dir = get_wasd_direction()
-            if dir.Magnitude > 0 then
-                local rootPart = owner.instance:FindFirstChild("HumanoidRootPart")
-                if rootPart then
-                    local to_target = (current_target - rootPart.Position)
-                    if to_target.Magnitude < 3 or dir.Magnitude > 0 then
-                        current_target = current_target + dir * CONFIG.speed * dt
-                    end
+            local direction = getWasdDirection()
+            if direction.Magnitude > 0 then
+                local currentRoot = ownerRef.instance and ownerRef.instance:FindFirstChild("HumanoidRootPart")
+                if currentRoot then
+                    currentTarget = currentTarget + direction * config.speed * dt
                 end
             end
 
             pcall(function()
-                if self.move_position then
-                    self.move_position.Position = current_target
+                if selfRef.move_position then
+                    selfRef.move_position.Position = currentTarget
+                    selfRef.move_position.MaxVelocity = config.pull_speed
                 end
             end)
         end))
@@ -429,66 +301,143 @@ return function(ctx)
         print("[Fly] Started")
     end
 
-    -- auto stop on character removing
-    LocalPlayer.CharacterRemoving:Connect(newcclosure(function(char)
-        if not flying then return end
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if humanoid and root and root.Parent then
-            clear_spoof(humanoid, "WalkSpeed")
-            clear_spoof(humanoid, "JumpPower")
-            humanoid.WalkSpeed = old_walkspeed or 16
-            humanoid.JumpPower = old_jumppower or 50
+    local function connectLocalViewmodel(viewmodel, viewmodelsFolder)
+        if localViewmodelConnections[viewmodel] then
+            return
         end
-        stop_flying()
-        print("[Fly] Auto-stopped on despawn")
-    end))
+
+        localViewmodelConnections[viewmodel] = viewmodel.AncestryChanged:Connect(newcclosure(function(_, parent)
+            if flying and parent ~= viewmodelsFolder then
+                stopFlying()
+                print("[Fly] Auto-stopped on LocalViewmodel ancestry change")
+            end
+
+            if not parent and localViewmodelConnections[viewmodel] then
+                localViewmodelConnections[viewmodel]:Disconnect()
+                localViewmodelConnections[viewmodel] = nil
+            end
+        end))
+    end
+
+    local function installHooks()
+        local oldGetPropertyChangedSignal
+        oldGetPropertyChangedSignal = hookfunction(game.GetPropertyChangedSignal, newcclosure(function(self, property)
+            if flying and self == trackedHumanoid then
+                if property == "WalkSpeed" or property == "JumpPower" then
+                    return dummyEvent.Event
+                end
+            end
+            return oldGetPropertyChangedSignal(self, property)
+        end))
+
+        if getrawmetatable and setreadonly then
+            local mt = getrawmetatable(game)
+            if mt and mt.__index then
+                local oldIndex = mt.__index
+                setreadonly(mt, false)
+                mt.__index = newcclosure(function(self, key)
+                    if flying and self == trackedHumanoid then
+                        if key == "WalkSpeed" then
+                            return oldWalkSpeed or 16
+                        end
+                        if key == "JumpPower" then
+                            return oldJumpPower or 50
+                        end
+                    end
+                    return oldIndex(self, key)
+                end)
+                setreadonly(mt, true)
+            end
+        end
+
+        local oldHookInputs = clonefunction(GrappleModule.hook_inputs)
+        rawset(GrappleModule, "hook_inputs", newcclosure(function(self, ...)
+            grappleSelfRef = self
+            grappleOwnerRef = self.owner
+            return oldHookInputs(self, ...)
+        end))
+
+        local oldCanRappel = clonefunction(GrappleModule.can_rappel)
+        rawset(GrappleModule, "can_rappel", newcclosure(function(self, owner)
+            if not flying then
+                return oldCanRappel(self, owner)
+            end
+
+            local camera = getCamera()
+            if not camera then
+                return oldCanRappel(self, owner)
+            end
+
+            local target = camera.CFrame.Position + camera.CFrame.LookVector * 100
+            return CFrame.new(target), CFrame.new(target + Vector3.new(0, 2, 0))
+        end))
+
+        local oldStartRappel = clonefunction(GrappleModule.start_rappel_mode)
+        rawset(GrappleModule, "start_rappel_mode", newcclosure(function(self, owner, ...)
+            return oldStartRappel(self, owner, ...)
+        end))
+    end
 
     function M:Init()
         if self._initialized then
             return
         end
 
-        UserInputService.InputBegan:Connect(newcclosure(function(input, processed)
-            if processed or not M.enabled then return end
+        installHooks()
 
-            if input.KeyCode == M.flyKey then
-                if flying then
-                    stop_flying()
-                else
-                    if grapple_self_ref and grapple_owner_ref then
-                        start_flying()
-                    else
-                        print("[Fly] Equip grapple first")
-                    end
-                end
+        local viewmodelsFolder = Workspace:WaitForChild("Viewmodels")
+        local existing = viewmodelsFolder:FindFirstChild("LocalViewmodel")
+        if existing then
+            connectLocalViewmodel(existing, viewmodelsFolder)
+        end
+
+        localViewmodelAddedConnection = viewmodelsFolder.ChildAdded:Connect(newcclosure(function(child)
+            if child.Name == "LocalViewmodel" then
+                connectLocalViewmodel(child, viewmodelsFolder)
+            end
+        end))
+
+        inputConnection = UserInputService.InputBegan:Connect(newcclosure(function(input, processed)
+            if processed or input.KeyCode ~= config.fly_key or not M.enabled then
+                return
+            end
+
+            if flying then
+                stopFlying()
+                return
+            end
+
+            if grappleSelfRef and grappleOwnerRef then
+                startFlying()
+            else
+                print("[Fly] Equip grapple first")
             end
         end))
 
         self._initialized = true
-        print("[Fly] Loaded")
+        print("[Fly] Loaded - press G to toggle")
     end
 
-    function M:SetEnabled(state)
-        state = state and true or false
-        M.enabled = state
-        if not state and flying then
-            stop_flying()
+    function M:SetEnabled(value)
+        self.enabled = value and true or false
+        if not self.enabled then
+            stopFlying()
         end
     end
 
     function M:SetSpeed(value)
-        CONFIG.speed = value
+        config.speed = value
         self.speed = value
     end
 
     function M:SetPullSpeed(value)
-        CONFIG.pull_speed = value
+        config.pull_speed = value
         self.pullSpeed = value
-        if flying and grapple_self_ref and grapple_self_ref.move_position then
-            local move_pos = grapple_self_ref.move_position
-            local fake = spoofed[move_pos] and spoofed[move_pos].MaxVelocity or move_pos.MaxVelocity
-            spoof_property(move_pos, "MaxVelocity", fake, CONFIG.pull_speed)
+
+        if flying and grappleSelfRef and grappleSelfRef.move_position then
+            pcall(function()
+                grappleSelfRef.move_position.MaxVelocity = value
+            end)
         end
     end
 
