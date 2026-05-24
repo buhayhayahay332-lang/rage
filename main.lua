@@ -5,7 +5,7 @@ getgenv().__OP1NIBBLER_UI__ = true
 
 local function import(path)
     local baseUrl = getgenv().OP1NIBBLER_BASE_URL or
-                        "https://raw.githubusercontent.com/buhayhayahay332-lang/Op1Nibbler/main/Op1Nibbler1/"
+                        "https://raw.githubusercontent.com/buhayhayahay332-lang/main/rage"
 
     if game.HttpGet and baseUrl and #baseUrl > 0 then
         local url = baseUrl .. path
@@ -77,7 +77,7 @@ local function safeRequire(pathFn)
     if ok then
         return result
     end
-    
+
     warn("[Op1Nibbler] require failed:", result)
     return nil
 end
