@@ -23,7 +23,7 @@ return function(ctx, Modules)
 
     local Window = Library:CreateWindow({
         Title = "FURRY MAN",
-        Footer = "rage",
+        Footer = "FREE YENO",
         Center = true,
         AutoShow = true,
         ShowCustomCursor = true,
@@ -367,7 +367,7 @@ return function(ctx, Modules)
         Text = "Fly Speed",
         Default = Modules.RappelFly.speed,
         Min = 1,
-        Max = 60,
+        Max = 9,
         Rounding = 1
     }):OnChanged(function(v)
         Modules.RappelFly:SetSpeed(v)

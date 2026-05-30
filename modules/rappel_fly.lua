@@ -31,7 +31,7 @@ return function(ctx)
     local GrappleModule = require(ReplicatedStorage.Modules.Items.Item.Utility.GrapplingHook)
 
     local config = {
-        speed = 10,
+        speed = 9,
         pull_speed = 0.5,
         fly_key = Enum.KeyCode.G
     }
