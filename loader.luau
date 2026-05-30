@@ -25,7 +25,6 @@ local RequiredExecutorFunctions = {
     "checkcaller",
     "clonefunction",
     "cloneref",
-    "replaceclosure",
     "getrawmetatable",
     "setreadonly",
     "loadfile",
