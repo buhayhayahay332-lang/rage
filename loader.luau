@@ -129,7 +129,22 @@ if not mainChunk then
     kick("failed to load main.lua: " .. tostring(loadErr))
 end
 
-local ok, runtimeErr = pcall(mainChunk)
+local actors = getactors()
+local targetActor = actors and actors[1] or nil
+if not targetActor then
+    kick("rejoin the game")
+end
+
+local function runMain()
+    local ok, runtimeErr = pcall(mainChunk)
+    if not ok then
+        error("main.lua failed: " .. tostring(runtimeErr), 0)
+    end
+end
+
+local ok, runtimeErr = pcall(function()
+    run_on_actor(targetActor, runMain)
+end)
 if not ok then
-    kick("main.lua failed: " .. tostring(runtimeErr))
+    kick(tostring(runtimeErr))
 end

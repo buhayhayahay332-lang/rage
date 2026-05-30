@@ -14,6 +14,7 @@ return function(ctx)
     local ReplicatedStorage = Services.ReplicatedStorage or cloneref(game:GetService("ReplicatedStorage"))
     local UserInputService = Services.UserInputService or cloneref(game:GetService("UserInputService"))
     local Workspace = Services.Workspace or cloneref(game:GetService("Workspace"))
+    local RunService = Services.RunService or cloneref(game:GetService("RunService"))
 
     local GunModule = ctx.GunModule or require(ReplicatedStorage.Modules.Items.Item.Gun)
     local original_get_shoot_look = clonefunction(GunModule.get_shoot_look)
