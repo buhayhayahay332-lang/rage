@@ -223,7 +223,6 @@ return function(ctx)
         oldWalkSpeed = nil
         oldJumpPower = nil
 
-        print("[Fly] Stopped")
     end
 
     local function startFlying()
@@ -298,7 +297,6 @@ return function(ctx)
             end)
         end))
 
-        print("[Fly] Started")
     end
 
     local function connectLocalViewmodel(viewmodel, viewmodelsFolder)
@@ -309,7 +307,6 @@ return function(ctx)
         localViewmodelConnections[viewmodel] = viewmodel.AncestryChanged:Connect(newcclosure(function(_, parent)
             if flying and parent ~= viewmodelsFolder then
                 stopFlying()
-                print("[Fly] Auto-stopped on LocalViewmodel ancestry change")
             end
 
             if not parent and localViewmodelConnections[viewmodel] then
@@ -410,12 +407,10 @@ return function(ctx)
             if grappleSelfRef and grappleOwnerRef then
                 startFlying()
             else
-                print("[Fly] Equip grapple first")
             end
         end))
 
         self._initialized = true
-        print("[Fly] Loaded - press G to toggle")
     end
 
     function M:SetEnabled(value)

@@ -91,9 +91,6 @@ return function(ctx)
         end)
 
         setreadonly(mt, true)
-        print("Property spoofing: ENABLED")
-    else
-        print("Property spoofing: DISABLED")
     end
 
     -- team filtering
@@ -265,7 +262,6 @@ return function(ctx)
     local toggle = newcclosure(function()
         ENABLED = not ENABLED
         M.enabled = ENABLED
-        print(ENABLED and "Hitbox Expander: ENABLED" or "Hitbox Expander: DISABLED")
 
         if ENABLED then
             updateTeamCache()

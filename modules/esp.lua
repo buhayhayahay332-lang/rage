@@ -437,7 +437,6 @@ return function(ctx)
             if input.KeyCode == Enum.KeyCode.Insert then
                 ESP_ENABLED = not ESP_ENABLED
                 M.enabled = ESP_ENABLED
-                print("ESP " .. (ESP_ENABLED and "ON" or "OFF"))
             end
         end))
     end

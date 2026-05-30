@@ -153,10 +153,6 @@ return function(ctx)
                 local success, targetPart = pcall(getClosestTargetToCursor)
 
                 if success and targetPart then
-                    if CONFIG.debug then
-                        print("Locked on:", targetPart:GetFullName())
-                    end
-
                     local weaponPos = originalCFrame.Position
                     local direction = (targetPart.Position - weaponPos).Unit
                     local targetCFrame = CFrame.lookAt(weaponPos, weaponPos + direction)
