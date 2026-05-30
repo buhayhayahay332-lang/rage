@@ -21,6 +21,7 @@ return function(ctx)
     local CONFIG = {
         enabled = false,
         fov_radius = 60,
+        show_fov_circle = false,
         target_players = true,
         target_gadgets = true,
         target_cameras = true,
@@ -38,10 +39,22 @@ return function(ctx)
 
     local viewmodelsFolder = nil
     local camera = Workspace.CurrentCamera
+    local fovCircle = Drawing.new("Circle")
+    local renderConnection = nil
+
+    fovCircle.Visible = false
+    fovCircle.Thickness = 1
+    fovCircle.NumSides = 100
+    fovCircle.Radius = CONFIG.fov_radius
+    fovCircle.Filled = false
+    fovCircle.Transparency = 1
+    fovCircle.Color = Color3.fromRGB(54, 57, 241)
+    fovCircle.ZIndex = 999
 
     local M = {
         enabled = CONFIG.enabled,
         fov = CONFIG.fov_radius,
+        fovVisible = CONFIG.show_fov_circle,
         smoothness = CONFIG.smoothness,
         targetPlayers = CONFIG.target_players,
         targetGadgets = CONFIG.target_gadgets,
@@ -173,6 +186,26 @@ return function(ctx)
         })
 
         GunModule.get_shoot_look = aimbot_proxy
+
+        renderConnection = RunService.RenderStepped:Connect(newcclosure(function()
+            if not CONFIG.show_fov_circle then
+                if fovCircle.Visible then
+                    fovCircle.Visible = false
+                end
+                return
+            end
+
+            local activeCamera = Workspace.CurrentCamera or camera
+            if not activeCamera then
+                fovCircle.Visible = false
+                return
+            end
+
+            local viewportSize = activeCamera.ViewportSize
+            fovCircle.Position = Vector2.new(viewportSize.X * 0.5, viewportSize.Y * 0.5)
+            fovCircle.Visible = true
+        end))
+
         self._initialized = true
     end
 
@@ -184,7 +217,14 @@ return function(ctx)
     function M:SetFov(fov)
         CONFIG.fov_radius = fov
         FOV_RADIUS_SQ = fov * fov
+        fovCircle.Radius = fov
         self.fov = fov
+    end
+
+    function M:SetFovVisible(value)
+        CONFIG.show_fov_circle = value and true or false
+        self.fovVisible = CONFIG.show_fov_circle
+        fovCircle.Visible = CONFIG.show_fov_circle
     end
 
     function M:SetSmoothness(value)
@@ -208,6 +248,13 @@ return function(ctx)
     end
 
     function M:Unhook()
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+        if fovCircle then
+            fovCircle:Remove()
+        end
         GunModule.get_shoot_look = original_get_shoot_look
     end
 

@@ -134,6 +134,12 @@ return function(ctx, Modules)
     }):OnChanged(function(v)
         Modules.SilentAim:SetFov(v)
     end)
+    SA:AddToggle("sa_fov_circle", {
+        Text = "Show FOV Circle",
+        Default = Modules.SilentAim.fovVisible
+    }):OnChanged(function(v)
+        Modules.SilentAim:SetFovVisible(v)
+    end)
     SA:AddSlider("sa_smooth", {
         Text = "Smoothness",
         Default = Modules.SilentAim.smoothness,
