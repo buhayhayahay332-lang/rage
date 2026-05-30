@@ -1,14 +1,17 @@
 return function(ctx, Modules)
-    local repo = "https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/"
+    local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 
     local okLibrary, Library = pcall(function()
         return loadstring(game:HttpGet(repo .. "Library.lua"))()
     end)
 
     if not okLibrary then
-        warn("[Op1Nibbler] Linoria load failed:", Library)
+        warn("[Op1Nibbler] Obsidian load failed:", Library)
         return
     end
+
+    Library.ForceCheckbox = false
+    Library.ShowToggleFrameInKeybinds = true
 
     local okTheme, ThemeManager = pcall(function()
         return loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
@@ -19,9 +22,12 @@ return function(ctx, Modules)
     end)
 
     local Window = Library:CreateWindow({
-        Title = "YE THE GLAZER",
+        Title = "FURRY MAN",
+        Footer = "rage",
         Center = true,
-        AutoShow = true
+        AutoShow = true,
+        ShowCustomCursor = true,
+        NotifySide = "Right"
     })
 
     local Tabs = {
