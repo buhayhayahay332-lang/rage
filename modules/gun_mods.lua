@@ -35,6 +35,7 @@ return function(ctx)
 
     local original_recoil_function = clonefunction(GunModule.recoil_function)
     local original_send_shoot = clonefunction(GunModule.send_shoot)
+    local original_input_shoot = clonefunction(GunModule.input_shoot)
     local original_input_render = clonefunction(GunModule.input_render)
     local original_reload_begin = clonefunction(GunModule.reload_begin)
     local original_sights = clonefunction(GunModule.sights)
@@ -283,6 +284,14 @@ return function(ctx)
             end
         end)
 
+        GunModule.input_shoot = newcclosure(function(self, ...)
+            if self and M.enabled and CONFIG.force_auto then
+                rawset(self, "automatic", true)
+            end
+
+            return original_input_shoot(self, ...)
+        end)
+
         GunModule.input_render = newcclosure(function(self, ...)
             if not self or not self.states then
                 return original_input_render(self, ...)
@@ -370,17 +379,11 @@ return function(ctx)
         end
 
         hookFunctions()
-        if self.enabled and CONFIG.force_auto then
-            GunModule.automatic = true
-        end
         self._initialized = true
     end
 
     function M:SetEnabled(value)
         self.enabled = value and true or false
-        if self.enabled and CONFIG.force_auto then
-            GunModule.automatic = true
-        end
     end
 
     function M:SetRecoilReduction(value)
@@ -417,9 +420,6 @@ return function(ctx)
     function M:SetForceAuto(value)
         CONFIG.force_auto = value and true or false
         self.forceAuto = CONFIG.force_auto
-        if self.enabled and CONFIG.force_auto then
-            GunModule.automatic = true
-        end
     end
 
     function M:SetInstantADS(value)
