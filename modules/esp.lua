@@ -37,9 +37,14 @@ return function(ctx)
     local PROXIMITY_ALARM_BOX_COLOR = Color3.fromRGB(255, 165, 0)
     local STICKY_CAMERA_BOX_COLOR = Color3.fromRGB(255, 192, 203)
     local REMOTE_C4_BOX_COLOR       = Color3.fromRGB(255, 50, 50)
-    local FRAG_GRENADE_BOX_COLOR    = Color3.fromRGB(150, 255, 50)
     local THERMITE_BOX_COLOR        = Color3.fromRGB(255, 140, 0)
     local TOXIC_BOX_COLOR           = Color3.fromRGB(80, 255, 80)
+    local HARD_BREACHER_BOX_COLOR   = Color3.fromRGB(255, 220, 120)
+    local SHOCK_BATTERY_BOX_COLOR   = Color3.fromRGB(120, 180, 255)
+    local DEPLOYABLE_SHIELD_BOX_COLOR = Color3.fromRGB(220, 220, 220)
+    local BARBED_WIRE_BOX_COLOR     = Color3.fromRGB(255, 80, 80)
+    local SIGNAL_JAMMER_BOX_COLOR   = Color3.fromRGB(180, 120, 255)
+    local BULLET_PROOF_CAMERA_COLOR = Color3.fromRGB(80, 220, 220)
     local OBJECT_BOX_THICK = 1.5
     local OBJECT_BOX_TRANSP = 0.9
 
@@ -59,7 +64,13 @@ return function(ctx)
         StickyCamera = true,
         RemoteC4 = true,
         ThermiteCharge = true,
-        ToxicCharge = true
+        ToxicCharge = true,
+        HardBreacher = true,
+        ShockBattery = true,
+        DeployableShield = true,
+        BarbedWire = true,
+        SignalJammer = true,
+        BulletProofCamera = true
     }
 
     local corners = {}
@@ -87,6 +98,18 @@ return function(ctx)
             return "Thermite"
         elseif name == "ToxicCharge" then
             return "Toxic"
+        elseif name == "HardBreacher" then
+            return "Hard Breacher"
+        elseif name == "ShockBattery" then
+            return "Shock Battery"
+        elseif name == "DeployableShield" then
+            return "Deployable Shield"
+        elseif name == "BarbedWire" then
+            return "Barbed Wire"
+        elseif name == "SignalJammer" then
+            return "Signal Jammer"
+        elseif name == "BulletProofCamera" then
+            return "Bullet Proof Camera"
         end
         return name
     end
@@ -138,6 +161,12 @@ return function(ctx)
         remoteC4Enabled = OBJECT_WHITELIST.RemoteC4,
         thermiteEnabled = OBJECT_WHITELIST.ThermiteCharge,
         toxicEnabled = OBJECT_WHITELIST.ToxicCharge,
+        hardBreacherEnabled = OBJECT_WHITELIST.HardBreacher,
+        shockBatteryEnabled = OBJECT_WHITELIST.ShockBattery,
+        deployableShieldEnabled = OBJECT_WHITELIST.DeployableShield,
+        barbedWireEnabled = OBJECT_WHITELIST.BarbedWire,
+        signalJammerEnabled = OBJECT_WHITELIST.SignalJammer,
+        bulletProofCameraEnabled = OBJECT_WHITELIST.BulletProofCamera,
         droneColor = DRONE_BOX_COLOR,
         claymoreColor = CLAYMORE_BOX_COLOR,
         proximityColor = PROXIMITY_ALARM_BOX_COLOR,
@@ -145,6 +174,12 @@ return function(ctx)
         remoteC4Color = REMOTE_C4_BOX_COLOR,
         thermiteColor = THERMITE_BOX_COLOR,
         toxicColor = TOXIC_BOX_COLOR,
+        hardBreacherColor = HARD_BREACHER_BOX_COLOR,
+        shockBatteryColor = SHOCK_BATTERY_BOX_COLOR,
+        deployableShieldColor = DEPLOYABLE_SHIELD_BOX_COLOR,
+        barbedWireColor = BARBED_WIRE_BOX_COLOR,
+        signalJammerColor = SIGNAL_JAMMER_BOX_COLOR,
+        bulletProofCameraColor = BULLET_PROOF_CAMERA_COLOR,
         playerThickness = PLAYER_BOX_THICK,
         objectThickness = OBJECT_BOX_THICK
     }
@@ -248,6 +283,12 @@ return function(ctx)
         elseif name == "RemoteC4"       then return REMOTE_C4_BOX_COLOR
         elseif name == "ThermiteCharge" then return THERMITE_BOX_COLOR
         elseif name == "ToxicCharge"    then return TOXIC_BOX_COLOR
+        elseif name == "HardBreacher"   then return HARD_BREACHER_BOX_COLOR
+        elseif name == "ShockBattery"   then return SHOCK_BATTERY_BOX_COLOR
+        elseif name == "DeployableShield" then return DEPLOYABLE_SHIELD_BOX_COLOR
+        elseif name == "BarbedWire"     then return BARBED_WIRE_BOX_COLOR
+        elseif name == "SignalJammer"   then return SIGNAL_JAMMER_BOX_COLOR
+        elseif name == "BulletProofCamera" then return BULLET_PROOF_CAMERA_COLOR
         end
         return nil
     end
@@ -787,6 +828,72 @@ return function(ctx)
     function M:SetToxicEnabled(value)
         setObjectEnabled("ToxicCharge", value)
         self.toxicEnabled = OBJECT_WHITELIST.ToxicCharge
+    end
+
+    function M:SetHardBreacherColor(value)
+        HARD_BREACHER_BOX_COLOR = value
+        self.hardBreacherColor = value
+        applyStyles()
+    end
+
+    function M:SetHardBreacherEnabled(value)
+        setObjectEnabled("HardBreacher", value)
+        self.hardBreacherEnabled = OBJECT_WHITELIST.HardBreacher
+    end
+
+    function M:SetShockBatteryColor(value)
+        SHOCK_BATTERY_BOX_COLOR = value
+        self.shockBatteryColor = value
+        applyStyles()
+    end
+
+    function M:SetShockBatteryEnabled(value)
+        setObjectEnabled("ShockBattery", value)
+        self.shockBatteryEnabled = OBJECT_WHITELIST.ShockBattery
+    end
+
+    function M:SetDeployableShieldColor(value)
+        DEPLOYABLE_SHIELD_BOX_COLOR = value
+        self.deployableShieldColor = value
+        applyStyles()
+    end
+
+    function M:SetDeployableShieldEnabled(value)
+        setObjectEnabled("DeployableShield", value)
+        self.deployableShieldEnabled = OBJECT_WHITELIST.DeployableShield
+    end
+
+    function M:SetBarbedWireColor(value)
+        BARBED_WIRE_BOX_COLOR = value
+        self.barbedWireColor = value
+        applyStyles()
+    end
+
+    function M:SetBarbedWireEnabled(value)
+        setObjectEnabled("BarbedWire", value)
+        self.barbedWireEnabled = OBJECT_WHITELIST.BarbedWire
+    end
+
+    function M:SetSignalJammerColor(value)
+        SIGNAL_JAMMER_BOX_COLOR = value
+        self.signalJammerColor = value
+        applyStyles()
+    end
+
+    function M:SetSignalJammerEnabled(value)
+        setObjectEnabled("SignalJammer", value)
+        self.signalJammerEnabled = OBJECT_WHITELIST.SignalJammer
+    end
+
+    function M:SetBulletProofCameraColor(value)
+        BULLET_PROOF_CAMERA_COLOR = value
+        self.bulletProofCameraColor = value
+        applyStyles()
+    end
+
+    function M:SetBulletProofCameraEnabled(value)
+        setObjectEnabled("BulletProofCamera", value)
+        self.bulletProofCameraEnabled = OBJECT_WHITELIST.BulletProofCamera
     end
 
     function M:RefreshStyles()
