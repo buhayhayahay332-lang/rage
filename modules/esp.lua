@@ -30,6 +30,8 @@ return function(ctx)
     local PLAYER_BOX_TRANSP = 1
 
     local OBJECT_BOX_ENABLED = true
+    local OBJECT_NAME_ENABLED = true
+    local OBJECT_NAME_SIZE = 14
     local DRONE_BOX_COLOR = Color3.fromRGB(0, 255, 255)
     local CLAYMORE_BOX_COLOR = Color3.fromRGB(255, 0, 0)
     local PROXIMITY_ALARM_BOX_COLOR = Color3.fromRGB(255, 165, 0)
@@ -55,7 +57,6 @@ return function(ctx)
         Claymore = true,
         ProximityAlarm = true,
         StickyCamera = true,
-        FragGrenade = true,
         RemoteC4 = true,
         ThermiteCharge = true,
         ToxicCharge = true
@@ -74,6 +75,21 @@ return function(ctx)
     local worldToViewportPoint = currentCamera and clonefunction(currentCamera.WorldToViewportPoint) or nil
     local createObjectBox
     local cleanupObjectBox
+
+    local function getObjectDisplayName(name)
+        if name == "ProximityAlarm" then
+            return "Proximity Alarm"
+        elseif name == "StickyCamera" then
+            return "Sticky Camera"
+        elseif name == "RemoteC4" then
+            return "Remote C4"
+        elseif name == "ThermiteCharge" then
+            return "Thermite"
+        elseif name == "ToxicCharge" then
+            return "Toxic"
+        end
+        return name
+    end
 
     local function refreshObjectsByName(name)
         local children = Workspace:GetChildren()
@@ -112,13 +128,14 @@ return function(ctx)
         teamCheck = TEAM_CHECK,
         playerBoxEnabled = PLAYER_BOX_ENABLED,
         objectBoxEnabled = OBJECT_BOX_ENABLED,
+        objectNameEnabled = OBJECT_NAME_ENABLED,
+        objectNameSize = OBJECT_NAME_SIZE,
         playerColor = PLAYER_BOX_COLOR,
         droneEnabled = OBJECT_WHITELIST.Drone,
         claymoreEnabled = OBJECT_WHITELIST.Claymore,
         proximityEnabled = OBJECT_WHITELIST.ProximityAlarm,
         stickyEnabled = OBJECT_WHITELIST.StickyCamera,
         remoteC4Enabled = OBJECT_WHITELIST.RemoteC4,
-        fragGrenadeEnabled = OBJECT_WHITELIST.FragGrenade,
         thermiteEnabled = OBJECT_WHITELIST.ThermiteCharge,
         toxicEnabled = OBJECT_WHITELIST.ToxicCharge,
         droneColor = DRONE_BOX_COLOR,
@@ -126,7 +143,6 @@ return function(ctx)
         proximityColor = PROXIMITY_ALARM_BOX_COLOR,
         stickyColor = STICKY_CAMERA_BOX_COLOR,
         remoteC4Color = REMOTE_C4_BOX_COLOR,
-        fragGrenadeColor = FRAG_GRENADE_BOX_COLOR,
         thermiteColor = THERMITE_BOX_COLOR,
         toxicColor = TOXIC_BOX_COLOR,
         playerThickness = PLAYER_BOX_THICK,
@@ -209,13 +225,27 @@ return function(ctx)
         return box
     end
 
+    local function createText(color, size, transparency, zIndex)
+        local text = Drawing.new("Text")
+        text.Visible = false
+        text.Center = true
+        text.Outline = true
+        text.Font = 2
+        text.Size = size
+        text.Transparency = transparency
+        text.Color = color
+        text.Text = ""
+        text.Position = Vector2new(0, 0)
+        text.ZIndex = zIndex
+        return text
+    end
+
         local function getObjectColor(name)
         if name == "Drone"           then return DRONE_BOX_COLOR
         elseif name == "Claymore"    then return CLAYMORE_BOX_COLOR
         elseif name == "ProximityAlarm" then return PROXIMITY_ALARM_BOX_COLOR
         elseif name == "StickyCamera"   then return STICKY_CAMERA_BOX_COLOR
         elseif name == "RemoteC4"       then return REMOTE_C4_BOX_COLOR
-        elseif name == "FragGrenade"    then return FRAG_GRENADE_BOX_COLOR    
         elseif name == "ThermiteCharge" then return THERMITE_BOX_COLOR
         elseif name == "ToxicCharge"    then return TOXIC_BOX_COLOR
         end
@@ -341,6 +371,7 @@ return function(ctx)
 
         if data.ancestryConn then data.ancestryConn:Disconnect() end
         if data.box then data.box:Remove() end
+        if data.nameText then data.nameText:Remove() end
 
         objectBoxes[obj] = nil
     end
@@ -400,6 +431,7 @@ return function(ctx)
 
         objectBoxes[obj] = {
             box = createBox(color, OBJECT_BOX_THICK, OBJECT_BOX_TRANSP, 3),
+            nameText = createText(color, OBJECT_NAME_SIZE, 1, 4),
             ancestryConn = obj.AncestryChanged:Connect(function(_, parent)
                 if not parent then
                     cleanupObjectBox(obj)
@@ -421,6 +453,12 @@ return function(ctx)
             box.Thickness = OBJECT_BOX_THICK
             box.Transparency = OBJECT_BOX_TRANSP
             box.Color = getObjectColor(obj.Name)
+
+            local nameText = data.nameText
+            if nameText then
+                nameText.Size = OBJECT_NAME_SIZE
+                nameText.Color = getObjectColor(obj.Name)
+            end
         end
     end
 
@@ -430,6 +468,9 @@ return function(ctx)
         end
         for _, data in pairs(objectBoxes) do
             data.box.Visible = false
+            if data.nameText then
+                data.nameText.Visible = false
+            end
         end
     end
 
@@ -559,14 +600,31 @@ return function(ctx)
                         data.box.Position = Vector2new(x, y)
                         data.box.Size = Vector2new(w, h)
                         data.box.Visible = true
+                        if data.nameText then
+                            if OBJECT_NAME_ENABLED then
+                                data.nameText.Text = getObjectDisplayName(obj.Name)
+                                data.nameText.Size = OBJECT_NAME_SIZE
+                                data.nameText.Color = getObjectColor(obj.Name)
+                                data.nameText.Position = Vector2new(x + (w * 0.5), y - data.nameText.Size - 2)
+                                data.nameText.Visible = true
+                            else
+                                data.nameText.Visible = false
+                            end
+                        end
                     else
                         data.box.Visible = false
+                        if data.nameText then
+                            data.nameText.Visible = false
+                        end
                     end
                 end
             end
         else
             for _, data in pairs(objectBoxes) do
                 data.box.Visible = false
+                if data.nameText then
+                    data.nameText.Visible = false
+                end
             end
         end
     end
@@ -611,8 +669,29 @@ return function(ctx)
         if not OBJECT_BOX_ENABLED then
             for _, data in pairs(objectBoxes) do
                 data.box.Visible = false
+                if data.nameText then
+                    data.nameText.Visible = false
+                end
             end
         end
+    end
+
+    function M:SetObjectNameEnabled(value)
+        OBJECT_NAME_ENABLED = value == true
+        self.objectNameEnabled = OBJECT_NAME_ENABLED
+        if not OBJECT_NAME_ENABLED then
+            for _, data in pairs(objectBoxes) do
+                if data.nameText then
+                    data.nameText.Visible = false
+                end
+            end
+        end
+    end
+
+    function M:SetObjectNameSize(value)
+        OBJECT_NAME_SIZE = value
+        self.objectNameSize = OBJECT_NAME_SIZE
+        applyStyles()
     end
 
     function M:SetPlayerThickness(value)
@@ -686,17 +765,6 @@ return function(ctx)
     function M:SetRemoteC4Enabled(value)
         setObjectEnabled("RemoteC4", value)
         self.remoteC4Enabled = OBJECT_WHITELIST.RemoteC4
-    end
-
-    function M:SetFragGrenadeColor(value)
-        FRAG_GRENADE_BOX_COLOR = value
-        self.fragGrenadeColor = value
-        applyStyles()
-    end
-
-    function M:SetFragGrenadeEnabled(value)
-        setObjectEnabled("FragGrenade", value)
-        self.fragGrenadeEnabled = OBJECT_WHITELIST.FragGrenade
     end
 
     function M:SetThermiteColor(value)
