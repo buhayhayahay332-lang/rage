@@ -34,6 +34,10 @@ return function(ctx)
     local CLAYMORE_BOX_COLOR = Color3.fromRGB(255, 0, 0)
     local PROXIMITY_ALARM_BOX_COLOR = Color3.fromRGB(255, 165, 0)
     local STICKY_CAMERA_BOX_COLOR = Color3.fromRGB(255, 192, 203)
+    local REMOTE_C4_BOX_COLOR       = Color3.fromRGB(255, 50, 50)
+    local FRAG_GRENADE_BOX_COLOR    = Color3.fromRGB(150, 255, 50)
+    local THERMITE_BOX_COLOR        = Color3.fromRGB(255, 140, 0)
+    local TOXIC_BOX_COLOR           = Color3.fromRGB(80, 255, 80)
     local OBJECT_BOX_THICK = 1.5
     local OBJECT_BOX_TRANSP = 0.9
 
@@ -160,15 +164,15 @@ return function(ctx)
         return box
     end
 
-    local function getObjectColor(name)
-        if name == "Drone" then
-            return DRONE_BOX_COLOR
-        elseif name == "Claymore" then
-            return CLAYMORE_BOX_COLOR
-        elseif name == "ProximityAlarm" then
-            return PROXIMITY_ALARM_BOX_COLOR
-        elseif name == "StickyCamera" then
-            return STICKY_CAMERA_BOX_COLOR
+        local function getObjectColor(name)
+        if name == "Drone"           then return DRONE_BOX_COLOR
+        elseif name == "Claymore"    then return CLAYMORE_BOX_COLOR
+        elseif name == "ProximityAlarm" then return PROXIMITY_ALARM_BOX_COLOR
+        elseif name == "StickyCamera"   then return STICKY_CAMERA_BOX_COLOR
+        elseif name == "RemoteC4"       then return REMOTE_C4_BOX_COLOR
+        elseif name == "FragGrenade"    then return FRAG_GRENADE_BOX_COLOR    
+        elseif name == "ThermiteCharge" then return THERMITE_BOX_COLOR
+        elseif name == "ToxicCharge"    then return TOXIC_BOX_COLOR
         end
         return nil
     end
