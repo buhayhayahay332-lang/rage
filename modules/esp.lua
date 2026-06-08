@@ -34,6 +34,10 @@ return function(ctx)
     local CLAYMORE_BOX_COLOR = Color3.fromRGB(255, 0, 0)
     local PROXIMITY_ALARM_BOX_COLOR = Color3.fromRGB(255, 165, 0)
     local STICKY_CAMERA_BOX_COLOR = Color3.fromRGB(255, 192, 203)
+    local REMOTE_C4_BOX_COLOR       = Color3.fromRGB(255, 50, 50)
+    local FRAG_GRENADE_BOX_COLOR    = Color3.fromRGB(150, 255, 50)
+    local THERMITE_BOX_COLOR        = Color3.fromRGB(255, 140, 0)
+    local TOXIC_BOX_COLOR           = Color3.fromRGB(80, 255, 80)
     local OBJECT_BOX_THICK = 1.5
     local OBJECT_BOX_TRANSP = 0.9
 
@@ -50,7 +54,11 @@ return function(ctx)
         Drone = true,
         Claymore = true,
         ProximityAlarm = true,
-        StickyCamera = true
+        StickyCamera = true,
+        FragGrenade = true,
+        RemoteC4 = true,
+        ThermiteCharge = true,
+        ToxicCharge = true
     }
 
     local corners = {}
@@ -64,6 +72,39 @@ return function(ctx)
 
     local currentCamera = Workspace.CurrentCamera
     local worldToViewportPoint = currentCamera and clonefunction(currentCamera.WorldToViewportPoint) or nil
+    local createObjectBox
+    local cleanupObjectBox
+
+    local function refreshObjectsByName(name)
+        local children = Workspace:GetChildren()
+        for i = 1, #children do
+            local child = children[i]
+            if child:IsA("Model") and child.Name == name then
+                createObjectBox(child)
+            end
+        end
+    end
+
+    local function setObjectEnabled(name, value)
+        local enabled = value == true
+        OBJECT_WHITELIST[name] = enabled
+
+        if enabled then
+            refreshObjectsByName(name)
+            return
+        end
+
+        local toRemove = {}
+        for obj in pairs(objectBoxes) do
+            if obj.Name == name then
+                toRemove[#toRemove + 1] = obj
+            end
+        end
+
+        for i = 1, #toRemove do
+            cleanupObjectBox(toRemove[i])
+        end
+    end
 
     local M = {
         initialized = false,
@@ -72,10 +113,22 @@ return function(ctx)
         playerBoxEnabled = PLAYER_BOX_ENABLED,
         objectBoxEnabled = OBJECT_BOX_ENABLED,
         playerColor = PLAYER_BOX_COLOR,
+        droneEnabled = OBJECT_WHITELIST.Drone,
+        claymoreEnabled = OBJECT_WHITELIST.Claymore,
+        proximityEnabled = OBJECT_WHITELIST.ProximityAlarm,
+        stickyEnabled = OBJECT_WHITELIST.StickyCamera,
+        remoteC4Enabled = OBJECT_WHITELIST.RemoteC4,
+        fragGrenadeEnabled = OBJECT_WHITELIST.FragGrenade,
+        thermiteEnabled = OBJECT_WHITELIST.ThermiteCharge,
+        toxicEnabled = OBJECT_WHITELIST.ToxicCharge,
         droneColor = DRONE_BOX_COLOR,
         claymoreColor = CLAYMORE_BOX_COLOR,
         proximityColor = PROXIMITY_ALARM_BOX_COLOR,
         stickyColor = STICKY_CAMERA_BOX_COLOR,
+        remoteC4Color = REMOTE_C4_BOX_COLOR,
+        fragGrenadeColor = FRAG_GRENADE_BOX_COLOR,
+        thermiteColor = THERMITE_BOX_COLOR,
+        toxicColor = TOXIC_BOX_COLOR,
         playerThickness = PLAYER_BOX_THICK,
         objectThickness = OBJECT_BOX_THICK
     }
@@ -156,15 +209,15 @@ return function(ctx)
         return box
     end
 
-    local function getObjectColor(name)
-        if name == "Drone" then
-            return DRONE_BOX_COLOR
-        elseif name == "Claymore" then
-            return CLAYMORE_BOX_COLOR
-        elseif name == "ProximityAlarm" then
-            return PROXIMITY_ALARM_BOX_COLOR
-        elseif name == "StickyCamera" then
-            return STICKY_CAMERA_BOX_COLOR
+        local function getObjectColor(name)
+        if name == "Drone"           then return DRONE_BOX_COLOR
+        elseif name == "Claymore"    then return CLAYMORE_BOX_COLOR
+        elseif name == "ProximityAlarm" then return PROXIMITY_ALARM_BOX_COLOR
+        elseif name == "StickyCamera"   then return STICKY_CAMERA_BOX_COLOR
+        elseif name == "RemoteC4"       then return REMOTE_C4_BOX_COLOR
+        elseif name == "FragGrenade"    then return FRAG_GRENADE_BOX_COLOR    
+        elseif name == "ThermiteCharge" then return THERMITE_BOX_COLOR
+        elseif name == "ToxicCharge"    then return TOXIC_BOX_COLOR
         end
         return nil
     end
@@ -280,7 +333,7 @@ return function(ctx)
         playerBoxes[char] = nil
     end
 
-    local function cleanupObjectBox(obj)
+    cleanupObjectBox = function(obj)
         local data = objectBoxes[obj]
         if not data then
             return
@@ -335,7 +388,7 @@ return function(ctx)
         playerBoxes[char] = data
     end
 
-    local function createObjectBox(obj)
+    createObjectBox = function(obj)
         if objectBoxes[obj] or not OBJECT_WHITELIST[obj.Name] then
             return
         end
@@ -586,10 +639,20 @@ return function(ctx)
         applyStyles()
     end
 
+    function M:SetDroneEnabled(value)
+        setObjectEnabled("Drone", value)
+        self.droneEnabled = OBJECT_WHITELIST.Drone
+    end
+
     function M:SetClaymoreColor(value)
         CLAYMORE_BOX_COLOR = value
         self.claymoreColor = value
         applyStyles()
+    end
+
+    function M:SetClaymoreEnabled(value)
+        setObjectEnabled("Claymore", value)
+        self.claymoreEnabled = OBJECT_WHITELIST.Claymore
     end
 
     function M:SetProximityColor(value)
@@ -598,10 +661,64 @@ return function(ctx)
         applyStyles()
     end
 
+    function M:SetProximityEnabled(value)
+        setObjectEnabled("ProximityAlarm", value)
+        self.proximityEnabled = OBJECT_WHITELIST.ProximityAlarm
+    end
+
     function M:SetStickyColor(value)
         STICKY_CAMERA_BOX_COLOR = value
         self.stickyColor = value
         applyStyles()
+    end
+
+    function M:SetStickyEnabled(value)
+        setObjectEnabled("StickyCamera", value)
+        self.stickyEnabled = OBJECT_WHITELIST.StickyCamera
+    end
+
+    function M:SetRemoteC4Color(value)
+        REMOTE_C4_BOX_COLOR = value
+        self.remoteC4Color = value
+        applyStyles()
+    end
+
+    function M:SetRemoteC4Enabled(value)
+        setObjectEnabled("RemoteC4", value)
+        self.remoteC4Enabled = OBJECT_WHITELIST.RemoteC4
+    end
+
+    function M:SetFragGrenadeColor(value)
+        FRAG_GRENADE_BOX_COLOR = value
+        self.fragGrenadeColor = value
+        applyStyles()
+    end
+
+    function M:SetFragGrenadeEnabled(value)
+        setObjectEnabled("FragGrenade", value)
+        self.fragGrenadeEnabled = OBJECT_WHITELIST.FragGrenade
+    end
+
+    function M:SetThermiteColor(value)
+        THERMITE_BOX_COLOR = value
+        self.thermiteColor = value
+        applyStyles()
+    end
+
+    function M:SetThermiteEnabled(value)
+        setObjectEnabled("ThermiteCharge", value)
+        self.thermiteEnabled = OBJECT_WHITELIST.ThermiteCharge
+    end
+
+    function M:SetToxicColor(value)
+        TOXIC_BOX_COLOR = value
+        self.toxicColor = value
+        applyStyles()
+    end
+
+    function M:SetToxicEnabled(value)
+        setObjectEnabled("ToxicCharge", value)
+        self.toxicEnabled = OBJECT_WHITELIST.ToxicCharge
     end
 
     function M:RefreshStyles()
@@ -635,4 +752,3 @@ return function(ctx)
 
     return M
 end
-
