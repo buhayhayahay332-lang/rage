@@ -50,7 +50,11 @@ return function(ctx)
         Drone = true,
         Claymore = true,
         ProximityAlarm = true,
-        StickyCamera = true
+        StickyCamera = true,
+        FragGrenade = true,
+        RemoteC4 = true,
+        ThermiteCharge = true,
+        ToxicCharge = true
     }
 
     local corners = {}
