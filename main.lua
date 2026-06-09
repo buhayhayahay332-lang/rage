@@ -137,7 +137,7 @@ Modules.NoSmokeFlash:Init()
 Modules.RappelFly:Init()
 
 local function loadRemoteUI()
-    local url = "https://raw.githubusercontent.com/PLU3t0/Meathead/main/OperationOne-main/fur_lib.lua"
+    local url = "https://github.com/buhayhayahay332-lang/rage/raw/refs/heads/main/ui-remotepaste.lua"
     local okHttp, source = pcall(function()
         return game:HttpGet(url)
     end)
